@@ -64,7 +64,7 @@ class GPUAccelerator(Accelerator):
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
     @staticmethod
-    def _print_cuda_info(self, local_rank: int) -> None:
+    def _print_cuda_info(local_rank: int) -> None:
         # set the correct cuda visible devices (using pci order)
         all_gpu_ids = ",".join([str(x) for x in range(torch.cuda.device_count())])
         devices = os.getenv("CUDA_VISIBLE_DEVICES", all_gpu_ids)
