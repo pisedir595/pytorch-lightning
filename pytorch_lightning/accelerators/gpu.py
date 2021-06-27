@@ -28,6 +28,10 @@ _log = logging.getLogger(__name__)
 class GPUAccelerator(Accelerator):
     """ Accelerator for GPU devices. """
 
+    def setup_environment(self) -> None:
+        self.set_nvidia_flags()
+        super().setup_environment()
+
     def setup(self, trainer: 'pl.Trainer', model: 'pl.LightningModule') -> None:
         """
         Raises:
@@ -36,7 +40,7 @@ class GPUAccelerator(Accelerator):
         """
         if "cuda" not in str(self.root_device):
             raise MisconfigurationException(f"Device should be GPU, got {self.root_device} instead")
-        self.set_nvidia_flags(trainer.local_rank)
+        self._print_cuda_info(trainer.local_rank)
         torch.cuda.set_device(self.root_device)
         return super().setup(trainer, model)
 
@@ -47,14 +51,6 @@ class GPUAccelerator(Accelerator):
         with torch.cuda.device(self.root_device):
             torch.cuda.empty_cache()
 
-    @staticmethod
-    def set_nvidia_flags(local_rank: int) -> None:
-        # set the correct cuda visible devices (using pci order)
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        all_gpu_ids = ",".join([str(x) for x in range(torch.cuda.device_count())])
-        devices = os.getenv("CUDA_VISIBLE_DEVICES", all_gpu_ids)
-        _log.info(f"LOCAL_RANK: {local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]")
-
     def to_device(self, step_kwargs: Dict[str, Union[Any, int]]) -> Dict[str, Union[Any, int]]:
         # no need to transfer batch to device in DP mode
         # TODO: Add support to allow batch transfer to device in Lightning for DP mode.
@@ -62,3 +58,14 @@ class GPUAccelerator(Accelerator):
             step_kwargs = super().to_device(step_kwargs)
 
         return step_kwargs
+
+    @staticmethod
+    def set_nvidia_flags() -> None:
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+    @staticmethod
+    def _print_cuda_info(self, local_rank: int) -> None:
+        # set the correct cuda visible devices (using pci order)
+        all_gpu_ids = ",".join([str(x) for x in range(torch.cuda.device_count())])
+        devices = os.getenv("CUDA_VISIBLE_DEVICES", all_gpu_ids)
+        _log.info(f"LOCAL_RANK: {local_rank} - CUDA_VISIBLE_DEVICES: [{devices}]")
