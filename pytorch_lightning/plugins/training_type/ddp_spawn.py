@@ -312,6 +312,7 @@ class DDPSpawnPlugin(ParallelPlugin):
     def barrier(self, *args, **kwargs):
         if torch_distrib.is_initialized():
             torch_distrib.barrier()
+        assert self.torch_distributed_backend == "nccl"
 
     def broadcast(self, obj: object, src: int = 0) -> object:
         return self.dist.broadcast(obj)
