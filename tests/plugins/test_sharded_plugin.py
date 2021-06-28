@@ -138,6 +138,7 @@ def test_ddp_sharded_plugin_checkpoint_multi_gpu(tmpdir):
     )
 
     trainer.fit(model)
+    assert trainer.training_type_plugin.torch_distributed_backend == "nccl"
 
     checkpoint_path = os.path.join(tmpdir, 'model.pt')
     trainer.save_checkpoint(checkpoint_path)
