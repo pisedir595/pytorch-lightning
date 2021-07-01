@@ -116,7 +116,8 @@ class TrainingEpochLoop(loops.Loop):
         # ------------------------------------
         # TRAINING_STEP + TRAINING_STEP_END
         # ------------------------------------
-            print("before run", self.iteration_count, torch.cuda.memory_allocated())
+        print("before run", self.iteration_count, torch.cuda.memory_allocated())
+
         with self.trainer.profiler.profile("run_training_batch"):
             batch_output = self.batch_loop.run(batch, self.iteration_count, self._dataloader_idx)
             self.batches_seen += 1
