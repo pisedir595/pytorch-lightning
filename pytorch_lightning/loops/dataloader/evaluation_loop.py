@@ -21,7 +21,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loops.dataloader import DataLoaderLoop
 from pytorch_lightning.loops.epoch import EvaluationEpochLoop
 from pytorch_lightning.trainer.connectors.logger_connector.result import ResultCollection
-from pytorch_lightning.trainer.progress import EvaluationEpochLoopProgress
+from pytorch_lightning.trainer.progress import EpochLoopProgress
 from pytorch_lightning.trainer.states import TrainerFn
 from pytorch_lightning.utilities.model_helpers import is_overridden
 from pytorch_lightning.utilities.types import EPOCH_OUTPUT
@@ -32,12 +32,13 @@ class EvaluationLoop(DataLoaderLoop):
 
     def __init__(self):
         super().__init__()
-        self._max_batches: Optional[Union[int, Sequence[int]]] = None
         self.outputs = []
         self.epoch_loop = EvaluationEpochLoop()
-        self._progress: Optional[EvaluationEpochLoopProgress] = None
+        self.results = ResultCollection(training=False)
+        self.progress = EpochLoopProgress()
+
+        self._max_batches: Optional[Union[int, Sequence[int]]] = None
         self._has_run: bool = False
-        self._results = ResultCollection(training=False)
 
     @property
     def num_dataloaders(self) -> int:
@@ -53,17 +54,6 @@ class EvaluationLoop(DataLoaderLoop):
         return length
 
     @property
-    def progress(self) -> EvaluationEpochLoopProgress:
-        if not self._progress:
-            self._progress = EvaluationEpochLoopProgress(epoch=self.epoch_loop.progress)
-        return self._progress
-
-    @progress.setter
-    def progress(self, progress: EvaluationEpochLoopProgress):
-        self._progress = progress
-        self.epoch_loop.progress = progress.epoch
-
-    @property
     def dataloaders(self) -> Sequence[DataLoader]:
         """Returns the validation or test dataloaders"""
         if self.trainer.testing:
@@ -71,19 +61,18 @@ class EvaluationLoop(DataLoaderLoop):
         return self.trainer.val_dataloaders
 
     @property
-    def results(self) -> ResultCollection:
-        """Returns the current results"""
-        return self._results
-
-    @property
     def predictions(self):
         """Returns the predictions from all dataloaders"""
         return self.epoch_loop.predictions
 
-    def connect(self, trainer: "pl.Trainer", *args: Any, **kwargs: Any) -> None:
+    def connect(
+        self, trainer: "pl.Trainer", *args: Any, progress: Optional[EpochLoopProgress] = None, **kwargs: Any
+    ) -> None:
         """Connects the loop to everything necessary (like trainer and accelerators)"""
         super().connect(trainer, *args, **kwargs)
-        self.epoch_loop.connect(trainer)
+        if progress is not None:
+            self.progress = progress
+        self.epoch_loop.connect(trainer, progress=self.progress.epoch)
 
     @property
     def done(self) -> bool:

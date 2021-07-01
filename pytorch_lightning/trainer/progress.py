@@ -140,7 +140,6 @@ class BatchProgress(Progress):
         total: Tracks the total epoch progress
         current: Tracks the current epoch progress
     """
-    should_check_val: bool = False
 
 
 @dataclass
@@ -232,6 +231,11 @@ class EpochLoopProgress(_DataclassStateDictMixin):
     """
     epoch: EpochProgress = field(default_factory=EpochProgress)
 
+    @property
+    def total_epoch_completed(self) -> int:
+        """Returns the total number of epoch completed"""
+        return self.epoch.total.completed
+
     def increment_epoch_completed(self) -> None:
         self.epoch.increment_completed()
         self.reset_on_epoch()
@@ -245,7 +249,14 @@ class EpochLoopProgress(_DataclassStateDictMixin):
 
 
 @dataclass
-class EvaluationEpochLoopProgress(EpochLoopProgress):
+class TrainingValLoopPorgress(EpochLoopProgress):
+    """
+    Extends ``EpochLoopProgress`` with training validation specific attributes
+
+    Args:
+        epoch: Tracks epochs progress.
+        should_check_val: Whether validation should run ¿¿when??  # FIXME
+    """
 
     should_check_val: bool = False
 
@@ -268,7 +279,7 @@ class TrainingEpochProgress(EpochProgress):
     """
 
     optim: OptimizationProgress = field(default_factory=OptimizationProgress)
-    val: EvaluationEpochLoopProgress = field(default_factory=EvaluationEpochLoopProgress)
+    val: TrainingValLoopPorgress = field(default_factory=TrainingValLoopPorgress)
 
     def __setstate__(self, state: dict) -> None:
         super().__setstate__(state)
@@ -291,3 +302,8 @@ class FitLoopProgress(EpochLoopProgress):
         # do not reset `epoch.current` as it should track the number of epochs this `fit` call
         self.epoch.reset_on_epoch()
         self.epoch.optim.reset_on_epoch()
+
+    @property
+    def total_optimizer_step_completed(self) -> int:
+        """Returns the total number of optimizer step completed"""
+        return self.epoch.optim.optimizer.step.total.completed

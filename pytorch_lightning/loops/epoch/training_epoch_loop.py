@@ -51,28 +51,12 @@ class TrainingEpochLoop(loops.Loop):
         self.batch_loop = TrainingBatchLoop()
         self.val_loop = loops.EvaluationLoop()
 
-        self._progress: Optional[TrainingEpochProgress] = None
+        self._results = ResultCollection(training=True)
+        self.progress = TrainingEpochProgress()
 
         self._dataloader_idx: Optional[int] = None
         self._warning_cache: WarningCache = WarningCache()
         self._epoch_output: Optional[List[List[STEP_OUTPUT]]] = None
-        self._results = ResultCollection(training=True)
-
-    @property
-    def progress(self) -> TrainingEpochProgress:
-        if not self._progress:
-            self._progress = TrainingEpochProgress(
-                val=self.val_loop.progress, batch=self.batch_loop.progress, optim=self.batch_loop.optimization_progress
-            )
-        return self._progress
-
-    @progress.setter
-    def progress(self, progress: TrainingEpochProgress) -> None:
-        if progress:
-            self.val_loop.progress = progress.val
-            self.batch_loop.progress = progress.batch
-            self.batch_loop.optimization_progress = progress.optim
-            self._progress = progress
 
     @property
     def results(self) -> ResultCollection:
@@ -104,11 +88,19 @@ class TrainingEpochLoop(loops.Loop):
         max_steps_reached = self.max_steps is not None and (self.total_optimizer_step) >= self.max_steps
         return max_steps_reached or self.trainer.should_stop or self._num_training_batches_reached(self.is_last_batch)
 
-    def connect(self, trainer: 'pl.Trainer', *args: Any, **kwargs: Any) -> None:
+    def connect(
+        self,
+        trainer: 'pl.Trainer',
+        *args: Any,
+        progress: Optional[TrainingEpochProgress] = None,
+        **kwargs: Any
+    ) -> None:
         """Connects the loop with all necessary parts like trainer and accelerators"""
         super().connect(trainer, *args, **kwargs)
-        self.batch_loop.connect(trainer)
-        self.val_loop.connect(trainer)
+        if progress is not None:
+            self.progress = progress
+        self.batch_loop.connect(trainer, progress=self.progress.batch, optim_progress=self.progress.optim)
+        self.val_loop.connect(trainer, progress=self.progress.val)
 
     def reset(self) -> None:
         """Resets the internal state of the loop for a new run"""
